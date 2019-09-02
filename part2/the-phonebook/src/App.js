@@ -11,10 +11,9 @@ const App = () => {
     const [newNumber, setNewNumber] = useState('');
     const [filter, setFilter] = useState('');
     //useEffect() to fetch data from server
-    useEffect(()=>{
+    useEffect(() => {
         axios.get('http://localhost:3001/persons')
-        .then(response =>
-            {
+            .then(response => {
                 console.log('Promise fullfiled, succesfully fetched data');
                 console.log(response);
                 setPersons(response.data);
