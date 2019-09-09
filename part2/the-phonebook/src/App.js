@@ -1,45 +1,59 @@
 import React, { useState, useEffect } from 'react'
-import axios from 'axios'
 import Filter from './components/Filter'
 import PersonForm from './components/PersonForm'
 import Persons from './components/Persons'
-
+import phoneService from './components/server-comm'
 
 const App = () => {
     const [persons, setPersons] = useState([]);
     const [newName, setNewName] = useState('');
     const [newNumber, setNewNumber] = useState('');
     const [filter, setFilter] = useState('');
-    //useEffect() to fetch data from server
     useEffect(() => {
-        axios.get('http://localhost:3001/persons')
-            .then(response => {
-                console.log('Promise fullfiled, succesfully fetched data');
-                console.log(response);
-                setPersons(response.data);
-            })
+        phoneService.getPeople().then(people => setPersons(people)).catch(err => console.log('Connection failed'));
     }, [])
 
     const addName = (event) => {
         event.preventDefault();
         //trimming spaces or tabs at the beggining or end of string
         let trimmed = newName ? newName.replace(/^[\s]+|[\s]+$/g, '') : '';
-        let alreadyAdded = false;
+        let alreadyAdded = false, existingID = 0;
         for (let index = 0; index < persons.length; index++) {
             if (checkForExistingName(persons[index]['name'], trimmed)) {
                 alreadyAdded = true;
+                existingID = persons[index]['id'];
                 break;
             }
         }
-        if (alreadyAdded) {
-            alert(`${trimmed} is already added to phonebook`);
-            setNewName('');
-        } else if (!/^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/g.test(newNumber)) {
+        if (!/\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})/g.test(newNumber)) {
             alert(`Invalid phone number input format, try (xxx) xxx xxxx/ xxx-xxx-xxxx/(xxx)xxxxxxx/xxx.xxx.xxxx or just xxxxxxxxxx `)
-        } else {
-            setPersons([...persons, { name: trimmed, number: newNumber }])
-            setNewName('');
-            setNewNumber('');
+        }
+        else if (alreadyAdded) {
+            (window.confirm(`${trimmed} is already added to phonebook, replace the old number with a new one?`))
+                ?
+                ((id) => {
+                    let personToChange = persons.find(p => p.id === id);
+                    const changedNum = { ...personToChange, number: newNumber };
+                    return phoneService.updatePerson(id, changedNum)
+                        .then((returnedNum) => setPersons(persons.map(person => person.id !== id ? person : returnedNum)))
+                        .catch(error => {
+                            alert(`The person ${personToChange.name} cannot be found in the server's data`)
+                            persons.filter(p => p !== p.id);
+                        })
+                        .finally(()=>{setNewName(''); setNewNumber('');});
+                })(existingID)
+                :
+                setNewName('');
+        }
+        else {
+            phoneService.createPerson({ name: trimmed, number: newNumber })
+                .then(person => {
+                    console.log('succesfully created');
+                    setPersons([...persons, person])
+                    setNewName('');
+                    setNewNumber('');
+                })
+                .catch(err => console.log('invalid entry data', err));
         }
     }
 
@@ -68,7 +82,18 @@ const App = () => {
         let filterPersons = persons.filter((person) => {
             return (!filter) ? person : returnFilteredPerson(person.name);
         });
-        return (filterPersons.map(person => <div key={person.name} > {person.name} {person.number} </div>))
+        return (filterPersons.map(person => <div key={person.name} > {person.name} {person.number} <button onClick={() => deleteNumberandUpdateList(person.name, person.id)}>delete</button></div>))
+    }
+
+    const deleteNumberandUpdateList = (name, id) => {
+        return (window.confirm(`Delete ${name}?`))
+            ?
+            phoneService.deletePerson(id)
+                .then(() => {
+                    setPersons(persons.filter(person => person.id !== id))
+                })
+                .catch(err => console.log('Unable to delete current person this time'))
+            : false;
     }
 
     const checkForExistingName = (person, newName) => {
