@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Filter from './components/Filter'
 import PersonForm from './components/PersonForm'
 import Persons from './components/Persons'
+import Modal from './components/modal'
 import phoneService from './components/server-comm'
 
 const App = () => {
@@ -9,6 +10,7 @@ const App = () => {
     const [newName, setNewName] = useState('');
     const [newNumber, setNewNumber] = useState('');
     const [filter, setFilter] = useState('');
+    const [messageBox, setMessageBox] = useState(null);
     useEffect(() => {
         phoneService.getPeople().then(people => setPersons(people)).catch(err => console.log('Connection failed'));
     }, [])
@@ -29,7 +31,7 @@ const App = () => {
             alert(`Invalid phone number input format, try (xxx) xxx xxxx/ xxx-xxx-xxxx/(xxx)xxxxxxx/xxx.xxx.xxxx or just xxxxxxxxxx `)
         }
         else if (alreadyAdded) {
-            (window.confirm(`${trimmed} is already added to phonebook, replace the old number with a new one?`))
+            return (window.confirm(`${trimmed} is already added to phonebook, replace the old number with a new one?`))
                 ?
                 ((id) => {
                     let personToChange = persons.find(p => p.id === id);
@@ -37,10 +39,10 @@ const App = () => {
                     return phoneService.updatePerson(id, changedNum)
                         .then((returnedNum) => setPersons(persons.map(person => person.id !== id ? person : returnedNum)))
                         .catch(error => {
-                            alert(`The person ${personToChange.name} cannot be found in the server's data`)
+                            displayMsgBox({message: `Information of ${trimmed} has already been removed from server`,style:{ color: 'red',border: 'red 3px solid', fontSize: 18}})
                             persons.filter(p => p !== p.id);
                         })
-                        .finally(()=>{setNewName(''); setNewNumber('');});
+                        .finally(() => { setNewName(''); setNewNumber(''); });
                 })(existingID)
                 :
                 setNewName('');
@@ -53,7 +55,8 @@ const App = () => {
                     setNewName('');
                     setNewNumber('');
                 })
-                .catch(err => console.log('invalid entry data', err));
+                .catch(err => console.log('invalid entry data', err))
+                .finally(() => displayMsgBox({message: `Added ${trimmed} to the phonebook`,style:{ color: 'green',border: 'green 3px solid', fontSize: 18}}));
         }
     }
 
@@ -104,9 +107,18 @@ const App = () => {
         }
     }
 
+    const displayMsgBox = (msg) => {
+        setMessageBox(msg);
+        setTimeout(() => {
+            setMessageBox(null);
+        }, 3000);
+    }
+
 
     return (<div >
-        <h2 > Phonebook </h2> <
+        <h2 > Phonebook </h2> 
+        <Modal msg={messageBox} />
+        <
             Filter filter={filter}
             updateFilter={updateFilter} />
         <h2 > Add a new contact </h2> <
@@ -123,5 +135,6 @@ const evalAndTrim = (str, regex) => {
     str = str.match(regex);
     return !(str) ? '' : str.join('');
 }
+
 
 export default App

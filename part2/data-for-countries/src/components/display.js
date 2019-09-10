@@ -1,21 +1,27 @@
-import React,{useEffect,useState} from 'react'
+import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import Weather from './weather'
 
-const Displayer = ({ country }) => {
-    const [capitalWeather,setWeather]=useState([]);
-    const [flag,setFlag]=useState(false);
+
+const useDisplayWeather = (capital) => {
+    const [capitalWeather, setWeather] = useState(null);
     useEffect(() => {
-        axios.get(`https://api.apixu.com/v1/current.json?key=2352219608ed457fb3a12903193008&q=${country.capital}`)
-            .then(response => {
-                console.log('Promise fullfiled, succesfully fetched data');
-                console.log(response);
-                setWeather(response.data);
-                setFlag(true);
-            })
-    }, [country.capital]);
-    
-   
+        const fetchDataFromApi = () => {
+            axios.get(`https://api.apixu.com/v1/current.json?key=2352219608ed457fb3a12903193008&q=${capital}`)
+                .then(response => {
+                    setWeather(response.data)
+                })
+                .catch(err => console.log('unable to fetch weather data'));
+        }
+        fetchDataFromApi();
+    }, [capital])
+
+    return [capitalWeather];
+}
+
+const Displayer = ({ country }) => {
+    const [capitalWeather] = useDisplayWeather(country.capital);
+
     return (<div className='displayer'>
         <h2>{country.name}</h2>
         <p>Capital {country.capital}</p>
@@ -25,7 +31,7 @@ const Displayer = ({ country }) => {
             {country.languages.map(lang => <li key={lang.name}>{lang.name}</li>)}
         </ul>
         <img className='imagen' src={country.flag} alt='this is the country flag'></img>
-        {flag && <Weather weather={capitalWeather}/>}
+        {!capitalWeather ? null : <Weather weather={capitalWeather} />}
     </div>)
 }
 
